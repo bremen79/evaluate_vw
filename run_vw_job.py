@@ -18,12 +18,12 @@ rgx = re.compile('^average loss = (.*)$', flags=re.M)
 params_dict = {
     'alg': [
         ('sgd'),
-        ('pistol'),
-        ('kt'),
+        ('coin'),
         ],
-    'learning_rate': [1.0],
     'loss_function': ['logistic'],
     }
+#    'learning_rate': ['0.5'],
+#        'ftrl_beta': [1],
 
 extra_flags = None
 
@@ -65,10 +65,12 @@ def process(ds, params, results_dir):
         if k == 'alg':
             if v == 'sgd':
                 pass
+                #cmd += ['--adaptive']
+                #cmd +=['normalized']
             elif v == 'pistol':
                 cmd += ['--pistol']
-            elif v == 'kt':
-                cmd += ['--kt']
+            elif v == 'coin':
+                cmd += ['--coin']
         else:
             cmd += ['--{}'.format(k), str(v)]
 
@@ -96,8 +98,8 @@ if __name__ == '__main__':
 
     args.results_dir = DIR_PATTERN.format(args.name)
 
-    if args.flags is not None:
-        extra_flags = args.flags.split()
+    #if args.flags is not None:
+    #    extra_flags = args.flags.split()
     grid = param_grid()
     dss = ds_files()
     tot_jobs = len(grid) * min(len(dss), int(args.num_ds))

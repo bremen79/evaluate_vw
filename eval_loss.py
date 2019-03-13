@@ -35,28 +35,28 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     loss_file = os.path.join(args.results_dir, 'all_losses.txt')
-    if os.path.exists(loss_file + '.gz'): # prefer gzipped file if it's there
-        loss_file += '.gz'
-    if not os.path.exists(loss_file):
-        sys.stderr.write('concatenating loss files...')
-        import subprocess
-        subprocess.check_call(['cat {} | sort > {}'.format(os.path.join(args.results_dir, 'loss*.txt'),
+    #if os.path.exists(loss_file + '.gz'): # prefer gzipped file if it's there
+    #    loss_file += '.gz'
+    #if not os.path.exists(loss_file):
+    sys.stderr.write('concatenating loss files...')
+    import subprocess
+    subprocess.check_call(['cat {} | sort > {}'.format(os.path.join(args.results_dir, 'loss*.txt'),
                                loss_file)], shell=True)
 
     df = load_raw(loss_file)
     
-    kt_res=df.loc[df['alg'] == 'kt']
-    kt_res.set_index('ds', inplace=True)
+    coin_res=df.loc[df['alg'] == 'coin']
+    coin_res.set_index('ds', inplace=True)
     
     sgd_res=df.loc[df['alg'] == 'sgd']
     sgd_res.set_index('ds', inplace=True)
     
-    diff=sgd_res.loss.sub(kt_res.loss)
+    diff=sgd_res.loss.sub(coin_res.loss)
     
     N=len(diff.index)
     
     #print diff
-    print 'KT wins ' + repr(len(diff.loc[diff>0].index)) + ' times on ' + repr(N) + ' datasets'
+    print 'Coin betting wins ' + repr(len(diff.loc[diff>0].index)) + ' times on ' + repr(N) + ' datasets'
     #rank=diff.abs().rank()
     ##print rank
     #T=min(rank.loc[diff>0].sum(),rank.loc[diff<0].sum())
