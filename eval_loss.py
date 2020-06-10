@@ -56,7 +56,7 @@ if __name__ == '__main__':
     N=len(diff.index)
     
     #print diff
-    print 'Coin betting wins ' + repr(len(diff.loc[diff>0].index)) + ' times on ' + repr(N) + ' datasets'
+    print 'Coin betting wins ' + repr(len(diff.loc[diff>0].index)) + ' times, equal on ' +repr(len(diff.loc[diff==0].index)) + ' on ' + repr(N) + ' datasets'
     #rank=diff.abs().rank()
     ##print rank
     #T=min(rank.loc[diff>0].sum(),rank.loc[diff<0].sum())

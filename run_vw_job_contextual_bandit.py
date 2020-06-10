@@ -14,13 +14,13 @@ DIR_PATTERN = './res/results_{}/'
 
 rgx = re.compile('^average loss = (.*)$', flags=re.M)
 
+
 params_dict = {
     'alg': [
         ('sgd'),
         ('coin'),
         ],
-    #'loss_function': ['hinge'],
-    'loss_function': ['quantile'],
+    'loss_function': ['squared'],
     }
 #    'learning_rate': ['0.5'],
 #        'ftrl_beta': [1],
@@ -38,31 +38,33 @@ def param_grid():
                 new_grid.append(gg)
         grid = new_grid
 
-    return grid
+    return sorted(grid)
 
 
 def ds_files():
     # only binary datasets
     import glob
-    return sorted(glob.glob(os.path.join(VW_DS_DIR, 'ds_0.0_*.vw.gz')))
+    return sorted(glob.glob(os.path.join(VW_DS_DIR, '*.vw.gz')))
 
 
 def get_task_name(ds, params):
-    did = int(os.path.basename(ds).split('_')[2].split('.')[0])
+    did = int(os.path.basename(ds).split('.')[0].split('_')[3])
+    number_classes = int(os.path.basename(ds).split('.')[0].split('_')[4])
 
     task_name = 'ds:{}'.format(did)
-    print(params)
+    print params
     task_name += '|' + '|'.join('{}:{}'.format(k, v) for k, v in sorted(params.items()) if len(params_dict[k])>1)
-    return task_name
+    return task_name, number_classes
 
 
-def process(ds, params, results_dir):
-    print('processing', ds, params)
-    did = int(os.path.basename(ds).split('_')[2].split('.')[0])
+def process(ds, nc, params, results_dir):
+    print 'processing', ds, params
+    did = int(os.path.basename(ds).split('.')[0].split('_')[3])
 
-    #cmd = [VW, ds, '-b', '24', '--ftrl_alpha', '16.0', '--ftrl_beta', '4.0']
-    cmd = [VW, ds, '-b', '24']
-    for k, v in params.items():
+    #cmd = [VW, ds, '-b', '24', '--cbify_ldf', str(nc), '--epsilon', '0.1']
+    #cmd = [VW, ds, '-b', '24', '--cbify', str(nc), '--epsilon', '0', '--cb_type', 'mtr', '--cb_explore_adf']
+    cmd = [VW, ds, '-b', '24', '--oaa', str(nc)]
+    for k, v in params.iteritems():
         if k == 'alg':
             if v == 'sgd':
                 pass
@@ -75,29 +77,32 @@ def process(ds, params, results_dir):
         else:
             cmd += ['--{}'.format(k), str(v)]
 
-    print('running', cmd)
+    print 'running', cmd
     t = time.time()
-    output = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode('utf-8')
+    output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
     sys.stderr.write('\n\n{}, {}, time: {}, output:\n'.format(ds, params, time.time() - t))
     sys.stderr.write(output)
     pv_loss = float(rgx.findall(output)[0])
-    print('elapsed time:', time.time() - t, 'pv loss:', pv_loss)
+    print 'elapsed time:', time.time() - t, 'pv loss:', pv_loss
 
     return pv_loss
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='vw job')
+    parser.add_argument('task_id', type=int, help='task ID, between 0 and num_tasks - 1')
+    parser.add_argument('num_tasks', type=int)
     parser.add_argument('--task_offset', type=int, default=0,
                         help='offset for task_id in output filenames')
     parser.add_argument('--name', default='vw')
     parser.add_argument('--test', action='store_true')
-    parser.add_argument('--num_ds', default=1000, help='maximum number of datasets to process')
-    parser.add_argument('--task_id', default=0, help='first id to process')
+    parser.add_argument('--num_ds', default=100000, help='maximum number of datasets to process')
     args = parser.parse_args()
 
     args.results_dir = DIR_PATTERN.format(args.name)
 
+    #if args.flags is not None:
+    #    extra_flags = args.flags.split()
     grid = param_grid()
     dss = ds_files()
     tot_jobs = len(grid) * min(len(dss), int(args.num_ds))
@@ -119,23 +124,24 @@ if __name__ == '__main__':
         loss_file = open(fname, 'w')
     idx = args.task_id
     while idx < tot_jobs:
-        ds = dss[int(idx / len(grid))]
+        ds = dss[idx / len(grid)]
         params = grid[idx % len(grid)]
+        task_name, nc = get_task_name(ds, params)
         if args.test:
-            print(ds, params)
+            print ds, params
         else:
-            print(ds, params)
-            task_name = get_task_name(ds, params)
-            print(task_name)
+            print ds, params
+            
+            print task_name
             if task_name not in done_tasks:
                 try:
-                    pv_loss = process(ds, params, args.results_dir)
+                    pv_loss = process(ds, nc, params, args.results_dir)
                     loss_file.write('{} {}\n'.format(task_name, pv_loss))
                     loss_file.flush()
                     os.fsync(loss_file.fileno())
                 except subprocess.CalledProcessError:
                     sys.stderr.write('\nERROR: TASK FAILED {} {}\n\n'.format(ds, params))
-                    print('ERROR: TASK FAILED', ds, params)
+                    print 'ERROR: TASK FAILED', ds, params
         #idx += args.num_tasks
         idx += 1
 
